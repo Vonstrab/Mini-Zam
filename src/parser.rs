@@ -3,8 +3,6 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::Path;
 
-
-
 use crate::machine::Inst;
 
 pub fn reader(filename: &str) -> BufReader<File> {
@@ -16,10 +14,8 @@ pub fn reader(filename: &str) -> BufReader<File> {
 pub fn parse_prog(fichier: BufReader<File>) -> Vec<(Option<String>, Inst)> {
     let mut prog: Vec<(Option<String>, Inst)> = Vec::new();
     for l in fichier.lines() {
-        let line :String = l.unwrap();
-        let mut tokens = line
-            .split_whitespace()
-            .collect::<Vec<&str>>();
+        let line: String = l.unwrap();
+        let mut tokens = line.split_whitespace().collect::<Vec<&str>>();
         let mut label = None;
 
         if !line.starts_with("\t") {
@@ -56,6 +52,34 @@ pub fn parse_prog(fichier: BufReader<File>) -> Vec<(Option<String>, Inst)> {
             _ => panic!("instruction non supportée"),
         }
         prog.push((label, instr));
+    }
+
+    prog
+}
+
+pub fn trans_appterm(code: &Vec<(Option<String>, Inst)>) -> Vec<(Option<String>, Inst)> {
+    let mut prog: Vec<(Option<String>, Inst)> = Vec::with_capacity(code.len());
+
+    let mut i = 0;
+    while i < code.len() {
+        match &code[i] {
+            (_l1, Inst::Apply(n)) => {
+                if i + 1 < code.len() {
+                    match &code[i + 1] {
+                        (_l2, Inst::Return(k)) => {
+                            //on ignore les labels pour l'instant
+                            prog.push((None,Inst::AppTerm(*n,*k+*n)));
+                            i += 1;
+                        }
+                        _ => prog.push(code[i].clone()),
+                    }
+                } else {
+                    prog.push(code[i].clone());
+                }
+            }
+            _ => prog.push(code[i].clone()),
+        }
+        i += 1;
     }
 
     prog

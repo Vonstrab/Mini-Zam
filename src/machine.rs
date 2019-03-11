@@ -24,6 +24,8 @@ pub enum Inst {
     //fonction n aire
     Grab(i64),
     Restart,
+    //Appterm
+    AppTerm(i64, i64),
 }
 
 pub struct ZAM {
@@ -223,10 +225,10 @@ impl ZAM {
                 for _ in 0..*n {
                     tmp.push(self.stack.pop().unwrap());
                 }
-
-                self.stack.push(Mlvalue::Entier(self.extra_args as i64));
-                self.stack.push(Mlvalue::Entier((self.pc + 1) as i64));
+                //empilé dans l'ordre env, pc , extra args
                 self.stack.push(Mlvalue::Environement(self.env.clone()));
+                self.stack.push(Mlvalue::Entier((self.pc + 1) as i64));
+                self.stack.push(Mlvalue::Entier(self.extra_args as i64));
 
                 for i in 0..*n {
                     let val = tmp[i as usize].clone();
@@ -253,9 +255,10 @@ impl ZAM {
                 }
 
                 if self.extra_args == 0 {
-                    self.env = self.stack.pop().unwrap().as_env();
-                    self.pc = self.stack.pop().unwrap().as_int() as usize;
+                    //dépilé dans l'ordre inverse a apply extra args,pc,env
                     self.extra_args = self.stack.pop().unwrap().as_int() as usize;
+                    self.pc = self.stack.pop().unwrap().as_int() as usize;
+                    self.env = self.stack.pop().unwrap().as_env();
                 } else {
                     self.extra_args -= 1;
                     match &self.accu {
@@ -290,13 +293,13 @@ impl ZAM {
                 self.accu = Mlvalue::Fermeture(self.env[0].as_int() as usize, self.env.clone());
                 self.pc += 1;
             }
-            //Fonctionsn aires
+            //Fonctions n aires
             Inst::Grab(n) => {
                 if self.extra_args >= *n as usize {
                     self.extra_args -= *n as usize;
-                    self.pc -= 1;
+                    self.pc += 1;
                 } else {
-                    for _ in 0..self.extra_args  {
+                    for _ in 0..self.extra_args + 1 {
                         self.env.push(self.stack.pop().unwrap());
                     }
                     self.accu = Mlvalue::Fermeture(self.pc - 1, self.env.clone());
@@ -314,8 +317,39 @@ impl ZAM {
                     }
                     self.env = vec![self.env[0].clone()];
                     self.extra_args += (n - 1);
+                } else {
+                    self.extra_args -= 1;
                 }
+
                 self.pc += 1;
+            }
+            Inst::AppTerm(n, m) => {
+                if *n > *m {
+                    panic!("Erreur n > m");
+                }
+                if *n < 0 {
+                    panic!("Nombre D'arguments négatifs");
+                }
+                let mut tmp = Vec::new();
+                for _ in 0..*n {
+                    tmp.push(self.stack.pop().unwrap());
+                }
+                for _ in *n..*m {
+                    self.stack.pop().unwrap();
+                }
+                for i in 0..*n {
+                    let val = tmp[i as usize].clone();
+                    self.stack.push(val);
+                }
+                match &self.accu {
+                    Mlvalue::Fermeture(npc, nenv) => {
+                        self.pc = *npc;
+                        self.env = nenv.clone();
+                    }
+                    _ => panic!("Pas de Fermeture dans l'Accu"),
+                }
+
+                self.extra_args += (*n as usize) - 1;
             }
         }
     }
