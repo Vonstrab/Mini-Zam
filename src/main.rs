@@ -11,8 +11,8 @@ fn main() {
     let arguments = std::env::args().collect::<Vec<String>>();
 
     let mut code = parser::parse_prog(parser::reader(arguments[1].as_str()));
-    println!("Transformation AppTerm :");
 
+    println!("Transformation AppTerm :");
     code = parser::trans_appterm(&code);
 
     println!("Code de {} :", arguments[1]);

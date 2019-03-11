@@ -49,6 +49,20 @@ pub fn parse_prog(fichier: BufReader<File>) -> Vec<(Option<String>, Inst)> {
             "OFFSETCLOSURE" => instr = Inst::OffSetClosure,
             "GRAB" => instr = Inst::Grab(tokens[1].parse::<i64>().unwrap()),
             "RESTART" => instr = Inst::Restart,
+            "APPTERM" => {
+                let args = tokens[1].split(',').collect::<Vec<&str>>();
+                instr = Inst::AppTerm(
+                    args[0].parse::<i64>().unwrap(),
+                    args[1].parse::<i64>().unwrap(),
+                )
+            }
+            "MAKEBLOCK" => instr = Inst::Makeblock(tokens[1].parse::<i64>().unwrap()),
+            "GETFIELD" => instr = Inst::Getfield(tokens[1].parse::<i64>().unwrap()),
+            "VECTLENGTH" => instr = Inst::Veclength,
+            "GETVECTITEM" => instr = Inst::Getvectitem,
+            "SETFIELD" => instr = Inst::Setfield(tokens[1].parse::<i64>().unwrap()),
+            "SETVECTITEM" => instr = Inst::SetVectitem,
+            "ASSIGN" => instr = Inst::Assign(tokens[1].parse::<i64>().unwrap()),
             _ => panic!("instruction non supportée"),
         }
         prog.push((label, instr));
@@ -68,7 +82,7 @@ pub fn trans_appterm(code: &Vec<(Option<String>, Inst)>) -> Vec<(Option<String>,
                     match &code[i + 1] {
                         (_l2, Inst::Return(k)) => {
                             //on ignore les labels pour l'instant
-                            prog.push((None,Inst::AppTerm(*n,*k+*n)));
+                            prog.push((None, Inst::AppTerm(*n, *k + *n)));
                             i += 1;
                         }
                         _ => prog.push(code[i].clone()),

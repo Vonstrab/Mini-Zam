@@ -26,6 +26,14 @@ pub enum Inst {
     Restart,
     //Appterm
     AppTerm(i64, i64),
+    //blocs mutables
+    Makeblock(i64),
+    Getfield(i64),
+    Veclength,
+    Getvectitem,
+    Setfield(i64),
+    SetVectitem,
+    Assign(i64),
 }
 
 pub struct ZAM {
@@ -189,6 +197,10 @@ impl ZAM {
             }
             Inst::Push => {
                 self.stack.push(self.accu.clone());
+                match self.accu {
+                    Mlvalue::Block(_) => self.accu = Mlvalue::RefBlock(self.stack.len() - 1),
+                    _ => {}
+                }
                 self.pc += 1;
             }
             Inst::Pop => {
@@ -197,11 +209,21 @@ impl ZAM {
             }
             Inst::Acc(i) => {
                 let indice: usize = self.stack.len() - (*i as usize) - 1;
-                self.accu = self.stack[indice].clone();
+                match self.stack[indice] {
+                    Mlvalue::Block(_) => self.accu = Mlvalue::RefBlock(indice),
+                    _ => {
+                        self.accu = self.stack[indice].clone();
+                    }
+                }
                 self.pc += 1;
             }
             Inst::Envacc(i) => {
-                self.accu = self.env[*i as usize].clone();
+                match self.env[*i as usize] {
+                    Mlvalue::Block(_) => self.accu = Mlvalue::RefBlock(*i as usize),
+                    _ => {
+                        self.accu = self.stack[*i as usize].clone();
+                    }
+                }
                 self.pc += 1;
             }
             Inst::Closure(l, n) => {
@@ -350,6 +372,57 @@ impl ZAM {
                 }
 
                 self.extra_args += (*n as usize) - 1;
+            }
+            //blocks mutables
+            Inst::Makeblock(n) => {
+                if *n < 0 {
+                    panic!("Taille négative");
+                }
+                let mut block = Vec::with_capacity(*n as usize);
+                if *n > 0 {
+                    block.push(self.accu.clone());
+                    for i in 1..*n {
+                        block.push(self.stack.pop().unwrap());
+                    }
+                }
+                self.accu = Mlvalue::Block(block);
+                self.pc += 1;
+            }
+            Inst::Getfield(n) => {
+                self.accu = self.accu.getfield(*n as usize, & mut self.stack);
+                self.pc += 1;
+            }
+
+            Inst::Veclength => {
+                self.accu = Mlvalue::Entier(self.accu.veclen(& self.stack) as i64);
+                self.pc += 1;
+            }
+
+            Inst::Getvectitem => {
+                let n = self.stack.pop().unwrap().as_int();
+                self.accu = self.accu.getfield(n as usize,&mut  self.stack);
+                self.pc += 1;
+            }
+
+            Inst::Setfield(n) => {
+                let val = self.stack.pop().unwrap();
+                self.accu.setfield(*n as usize, val, &mut self.stack);
+                self.pc += 1;
+            }
+
+            Inst::SetVectitem => {
+                let n = self.stack.pop().unwrap().as_int();
+                let v = self.stack.pop().unwrap();
+                self.accu.setfield(n as usize, v, &mut self.stack);
+                self.accu=Mlvalue::Entier(0);
+                self.pc += 1;
+            }
+
+            Inst::Assign(n) => {
+                let indice: usize = self.stack.len() - (*n as usize) - 1;
+                self.stack[indice] = self.accu.clone();
+                self.accu = Mlvalue::Entier(0);
+                self.pc += 1;
             }
         }
     }
